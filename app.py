@@ -1,7 +1,9 @@
 import os
 import re
+import pdfplumber
 from flask import Flask, request, render_template, redirect, url_for, send_file
-from PyPDF2 import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
@@ -26,27 +28,28 @@ def index():
     return render_template('index.html')
 
 def replace_text_in_pdf(pdf_path, old_text, new_text):
-    reader = PdfReader(pdf_path)
-    writer = PdfWriter()
-
-    for page in reader.pages:
-        text = page.extract_text()
-        # Normaliza los espacios en blanco
-        normalized_text = re.sub(r'\s+', ' ', text)
-        print("Texto extraído:", normalized_text)
-        # Verifica si el texto buscado está presente
-        if old_text in normalized_text:
-            print(f"'{old_text}' encontrado, reemplazando con '{new_text}'.")
-            normalized_text = normalized_text.replace(old_text, new_text)
-        else:
-            print(f"No se encontró el texto '{old_text}' en la página.")
-        # Aquí agregamos la página al PDF sin cambios ya que PyPDF2 no permite reemplazar texto directamente
-        writer.add_page(page)
-
     output_path = pdf_path.replace(".pdf", "_modified.pdf")
-    with open(output_path, "wb") as output_pdf:
-        writer.write(output_pdf)
     
+    with pdfplumber.open(pdf_path) as pdf:
+        c = canvas.Canvas(output_path, pagesize=letter)
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                normalized_text = re.sub(r'\s+', ' ', text)
+                print("Texto extraído:", normalized_text)
+                if old_text in normalized_text:
+                    print(f"'{old_text}' encontrado, reemplazando con '{new_text}'.")
+                    modified_text = normalized_text.replace(old_text, new_text)
+                else:
+                    print(f"No se encontró el texto '{old_text}' en la página.")
+                    modified_text = normalized_text
+                # Añade el texto modificado al nuevo PDF
+                text_lines = modified_text.split('\n')
+                for i, line in enumerate(text_lines):
+                    c.drawString(100, 750 - i*15, line)
+                c.showPage()
+        c.save()
+
     return output_path
 
 @app.route('/download/<filename>')
@@ -57,3 +60,4 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
