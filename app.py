@@ -46,7 +46,7 @@ def replace_text_in_pdf(pdf_path, old_text, new_text):
                 page.add_redact_annot(inst, fill=(255, 255, 255))
                 page.apply_redactions()
                 # Ajustar la posición del texto bajándolo una línea (ajustar coordenada Y)
-                adjusted_position = (inst[0], inst[1] - 10)  # Baja 10 unidades la posición vertical
+                adjusted_position = (inst[0], inst[1] - 20)  # Baja 10 unidades la posición vertical
                 page.insert_text(adjusted_position, new_text, fontsize=inst[3]-inst[1], color=(0, 0, 0))
 
     if text_found:
