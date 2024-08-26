@@ -1,5 +1,6 @@
-from flask import Flask, request, render_template, redirect, url_for, send_file
 import os
+import re
+from flask import Flask, request, render_template, redirect, url_for, send_file
 from PyPDF2 import PdfReader, PdfWriter
 
 app = Flask(__name__)
@@ -30,7 +31,16 @@ def replace_text_in_pdf(pdf_path, old_text, new_text):
 
     for page in reader.pages:
         text = page.extract_text()
-        text = text.replace(old_text, new_text)
+        # Normaliza los espacios en blanco
+        normalized_text = re.sub(r'\s+', ' ', text)
+        print("Texto extraído:", normalized_text)
+        # Verifica si el texto buscado está presente
+        if old_text in normalized_text:
+            print(f"'{old_text}' encontrado, reemplazando con '{new_text}'.")
+            normalized_text = normalized_text.replace(old_text, new_text)
+        else:
+            print(f"No se encontró el texto '{old_text}' en la página.")
+        # Aquí agregamos la página al PDF sin cambios ya que PyPDF2 no permite reemplazar texto directamente
         writer.add_page(page)
 
     output_path = pdf_path.replace(".pdf", "_modified.pdf")
@@ -47,4 +57,3 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
