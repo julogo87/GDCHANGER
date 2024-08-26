@@ -1,7 +1,9 @@
 import os
 import re
+import pdfplumber
 from flask import Flask, request, render_template, redirect, url_for, send_file
-from PyPDF2 import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
@@ -28,43 +30,29 @@ def index():
                 return "No se encontró el texto 'Tampa Cargo' en el documento."
     return render_template('index.html')
 
-def pattern_match(text):
-    # Expresión regular para buscar "Tampa Cargo" con cualquier separador entre letras
-    regex = re.compile(r"t\s*\.?\s*a\s*\.?\s*m\s*\.?\s*p\s*\.?\s*a\s*\.?\s*c\s*\.?\s*a\s*\.?\s*r\s*\.?\s*g\s*\.?\s*o", re.IGNORECASE)
-    return re.search(regex, text)
-
 def replace_text_in_pdf(pdf_path, old_text, new_text):
-    reader = PdfReader(pdf_path)
-    writer = PdfWriter()
-
-    text_found = False
-
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            # Buscar si el patrón se encuentra en la página
-            if pattern_match(text):
-                text_found = True
-                print(f"'{old_text}' encontrado en la página. Reemplazando con '{new_text}'.")
-                
-                # Aquí se puede implementar lógica adicional para redibujar el texto con PyPDF2 si es necesario
-                # Esto es un ejemplo de cómo podríamos proceder con el reemplazo en el texto normalizado.
-                modified_text = pattern_match(text).re.sub(new_text, text)
-                print("Texto modificado:", modified_text)
-            else:
-                modified_text = text
-            
-            # Por ahora, simplemente agregamos la página sin cambios
-            # Un reemplazo real en el PDF necesitaría un enfoque diferente
-            writer.add_page(page)
-
     output_path = pdf_path.replace(".pdf", "_modified.pdf")
-    with open(output_path, "wb") as output_pdf:
-        writer.write(output_pdf)
-
-    if not text_found:
-        print("No se encontró el texto 'Tampa Cargo' en el documento.")
-        return None
+    
+    with pdfplumber.open(pdf_path) as pdf:
+        c = canvas.Canvas(output_path, pagesize=letter)
+        for page_num, page in enumerate(pdf.pages):
+            text = page.extract_text()
+            if text:
+                # Buscar y reemplazar "Tampa Cargo" con cualquier separador entre letras
+                pattern = re.compile(r"t\s*\.?\s*a\s*\.?\s*m\s*\.?\s*p\s*\.?\s*a\s*\.?\s*c\s*\.?\s*a\s*\.?\s*r\s*\.?\s*g\s*\.?\s*o", re.IGNORECASE)
+                modified_text = re.sub(pattern, new_text, text)
+                if modified_text != text:
+                    print(f"'{old_text}' encontrado en la página {page_num + 1}. Reemplazado por '{new_text}'.")
+                
+                # Escribir el texto modificado en el nuevo PDF
+                text_lines = modified_text.split('\n')
+                for i, line in enumerate(text_lines):
+                    c.drawString(100, 750 - i*15, line)
+                c.showPage()
+            else:
+                print(f"No se encontró texto en la página {page_num + 1}.")
+        
+        c.save()
 
     return output_path
 
@@ -76,3 +64,4 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
