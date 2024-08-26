@@ -1,4 +1,5 @@
 import os
+import re  # Asegúrate de importar el módulo 're'
 import fitz  # PyMuPDF
 from flask import Flask, request, render_template, redirect, url_for, send_file
 
