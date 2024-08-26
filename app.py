@@ -28,29 +28,25 @@ def index():
                 return "No se encontró el texto 'Tampa Cargo' en el documento."
     return render_template('index.html')
 
-def normalize_text(text):
-    # Normalizar el texto eliminando puntos, espacios y saltos de línea, y uniendo todo en una sola cadena
-    normalized_text = re.sub(r'[\s\.]+', '', text)
-    return normalized_text
+def pattern_match(text, pattern):
+    # Expresión regular para buscar "Tampa Cargo" con cualquier separador entre letras
+    regex = re.compile(r"t\s*\.?\s*a\s*\.?\s*m\s*\.?\s*p\s*\.?\s*a\s*\.?\s*c\s*\.?\s*a\s*\.?\s*r\s*\.?\s*g\s*\.?\s*o", re.IGNORECASE)
+    return re.search(regex, text)
 
 def replace_text_in_pdf(pdf_path, old_text, new_text):
     reader = PdfReader(pdf_path)
     writer = PdfWriter()
 
     text_found = False
-    normalized_old_text = normalize_text(old_text)
     
     for page in reader.pages:
         text = page.extract_text()
         if text:
-            normalized_text = normalize_text(text)
-            print(f"Texto normalizado de la página: {normalized_text}")
-
-            if normalized_old_text in normalized_text:
+            if pattern_match(text, old_text):
                 text_found = True
-                print(f"'{old_text}' encontrado. Reemplazando con '{new_text}'.")
+                print(f"'{old_text}' encontrado en la página. Reemplazando con '{new_text}'.")
 
-                # Reemplazar el texto original con el nuevo en el texto normalizado
+                # Lógica adicional necesaria para redibujar el texto con PyPDF2 si es necesario
                 modified_text = text.replace(old_text, new_text)
             else:
                 modified_text = text
@@ -76,3 +72,4 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
