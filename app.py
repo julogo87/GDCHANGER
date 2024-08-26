@@ -1,9 +1,6 @@
 import os
-import re
-import pdfplumber
+import fitz  # PyMuPDF
 from flask import Flask, request, render_template, redirect, url_for, send_file
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
@@ -31,30 +28,31 @@ def index():
     return render_template('index.html')
 
 def replace_text_in_pdf(pdf_path, old_text, new_text):
+    doc = fitz.open(pdf_path)
     output_path = pdf_path.replace(".pdf", "_modified.pdf")
-    
-    with pdfplumber.open(pdf_path) as pdf:
-        c = canvas.Canvas(output_path, pagesize=letter)
-        for page_num, page in enumerate(pdf.pages):
-            text = page.extract_text()
-            if text:
-                # Buscar y reemplazar "Tampa Cargo" con cualquier separador entre letras
-                pattern = re.compile(r"t\s*\.?\s*a\s*\.?\s*m\s*\.?\s*p\s*\.?\s*a\s*\.?\s*c\s*\.?\s*a\s*\.?\s*r\s*\.?\s*g\s*\.?\s*o", re.IGNORECASE)
-                modified_text = re.sub(pattern, new_text, text)
-                if modified_text != text:
-                    print(f"'{old_text}' encontrado en la página {page_num + 1}. Reemplazado por '{new_text}'.")
-                
-                # Escribir el texto modificado en el nuevo PDF
-                text_lines = modified_text.split('\n')
-                for i, line in enumerate(text_lines):
-                    c.drawString(100, 750 - i*15, line)
-                c.showPage()
-            else:
-                print(f"No se encontró texto en la página {page_num + 1}.")
-        
-        c.save()
+    text_found = False
 
-    return output_path
+    # Expresión regular para buscar "Tampa Cargo" con cualquier separador entre letras
+    pattern = re.compile(r"t\s*\.?\s*a\s*\.?\s*m\s*\.?\s*p\s*\.?\s*a\s*\.?\s*c\s*\.?\s*a\s*\.?\s*r\s*\.?\s*g\s*\.?\s*o", re.IGNORECASE)
+
+    for page in doc:
+        text_instances = page.search_for(old_text)
+        
+        if text_instances:
+            text_found = True
+            for inst in text_instances:
+                # Añadir anotación de redacción
+                page.add_redact_annot(inst, fill=(255, 255, 255))
+                page.apply_redactions()
+                # Insertar el nuevo texto en la posición encontrada
+                page.insert_text(inst[:2], new_text, fontsize=inst[3]-inst[1], color=(0, 0, 0))
+
+    if text_found:
+        doc.save(output_path)
+        return output_path
+    else:
+        doc.close()
+        return None
 
 @app.route('/download/<filename>')
 def download_file(filename):
@@ -64,4 +62,3 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
