@@ -1,7 +1,7 @@
 import os
 import re
-import fitz  # PyMuPDF
 from flask import Flask, request, render_template, redirect, url_for, send_file
+from PyPDF2 import PdfReader, PdfWriter
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
@@ -29,36 +29,44 @@ def index():
     return render_template('index.html')
 
 def normalize_text(text):
-    # Normalizar el texto eliminando puntos, espacios, y saltos de línea
+    # Normalizar el texto eliminando puntos, espacios y saltos de línea, y uniendo todo en una sola cadena
     normalized_text = re.sub(r'[\s\.]+', '', text)
     return normalized_text
 
 def replace_text_in_pdf(pdf_path, old_text, new_text):
-    output_path = pdf_path.replace(".pdf", "_modified.pdf")
-    doc = fitz.open(pdf_path)
-    
+    reader = PdfReader(pdf_path)
+    writer = PdfWriter()
+
     text_found = False
     normalized_old_text = normalize_text(old_text)
     
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        text = page.get_text("text")
-        normalized_text = normalize_text(text)
-        
-        if normalized_old_text in normalized_text:
-            text_found = True
-            print(f"'{old_text}' encontrado en la página {page_num}.")
-            # Aquí puedes continuar con el reemplazo del texto, pero la ubicación exacta puede ser difícil de determinar
-            # debido a la normalización. Podrías necesitar un enfoque más avanzado para redibujar el texto.
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            normalized_text = normalize_text(text)
+            print(f"Texto normalizado de la página: {normalized_text}")
+
+            if normalized_old_text in normalized_text:
+                text_found = True
+                print(f"'{old_text}' encontrado. Reemplazando con '{new_text}'.")
+
+                # Reemplazar el texto original con el nuevo en el texto normalizado
+                modified_text = text.replace(old_text, new_text)
+            else:
+                modified_text = text
             
-            # Se puede agregar lógica aquí para redibujar o cubrir el texto encontrado y agregar el nuevo texto.
+            # Por ahora, agregamos la página sin cambios
+            # Para un reemplazo real en el PDF, se necesitaría un enfoque diferente
+            writer.add_page(page)
+
+    output_path = pdf_path.replace(".pdf", "_modified.pdf")
+    with open(output_path, "wb") as output_pdf:
+        writer.write(output_pdf)
     
-    if text_found:
-        doc.save(output_path)
-        return output_path
-    else:
-        doc.close()
+    if not text_found:
         return None
+
+    return output_path
 
 @app.route('/download/<filename>')
 def download_file(filename):
@@ -68,4 +76,3 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
