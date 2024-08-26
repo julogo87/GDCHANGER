@@ -1,9 +1,13 @@
+from flask import Flask, request, render_template, redirect, url_for, send_file
 import os
-from flask import Flask, request, render_template, redirect, url_for
 from PyPDF2 import PdfReader, PdfWriter
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
+
+# Verifica y crea el directorio si no existe
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -37,8 +41,10 @@ def replace_text_in_pdf(pdf_path, old_text, new_text):
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    return f'Archivo modificado disponible: {filename}.'
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    return send_file(file_path, as_attachment=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
