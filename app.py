@@ -1,5 +1,5 @@
 import os
-import re  # Asegúrate de importar el módulo 're'
+import re
 import fitz  # PyMuPDF
 from flask import Flask, request, render_template, redirect, url_for, send_file
 
@@ -45,8 +45,9 @@ def replace_text_in_pdf(pdf_path, old_text, new_text):
                 # Añadir anotación de redacción
                 page.add_redact_annot(inst, fill=(255, 255, 255))
                 page.apply_redactions()
-                # Insertar el nuevo texto en la posición encontrada
-                page.insert_text(inst[:2], new_text, fontsize=inst[3]-inst[1], color=(0, 0, 0))
+                # Ajustar la posición del texto bajándolo una línea (ajustar coordenada Y)
+                adjusted_position = (inst[0], inst[1] - 10)  # Baja 10 unidades la posición vertical
+                page.insert_text(adjusted_position, new_text, fontsize=inst[3]-inst[1], color=(0, 0, 0))
 
     if text_found:
         doc.save(output_path)
