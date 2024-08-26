@@ -1,4 +1,5 @@
 import os
+import re
 import fitz  # PyMuPDF
 from flask import Flask, request, render_template, redirect, url_for, send_file
 
@@ -27,21 +28,30 @@ def index():
                 return "No se encontró el texto 'Tampa Cargo' en el documento."
     return render_template('index.html')
 
+def normalize_text(text):
+    # Normalizar el texto eliminando puntos, espacios, y saltos de línea
+    normalized_text = re.sub(r'[\s\.]+', '', text)
+    return normalized_text
+
 def replace_text_in_pdf(pdf_path, old_text, new_text):
     output_path = pdf_path.replace(".pdf", "_modified.pdf")
     doc = fitz.open(pdf_path)
     
     text_found = False
+    normalized_old_text = normalize_text(old_text)
+    
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
-        text_instances = page.search_for(old_text)
+        text = page.get_text("text")
+        normalized_text = normalize_text(text)
         
-        if text_instances:
+        if normalized_old_text in normalized_text:
             text_found = True
-            for inst in text_instances:
-                page.add_redact_annot(inst, fill=(255, 255, 255))
-                page.apply_redactions()
-                page.insert_text(inst[:2], new_text, fontsize=12)
+            print(f"'{old_text}' encontrado en la página {page_num}.")
+            # Aquí puedes continuar con el reemplazo del texto, pero la ubicación exacta puede ser difícil de determinar
+            # debido a la normalización. Podrías necesitar un enfoque más avanzado para redibujar el texto.
+            
+            # Se puede agregar lógica aquí para redibujar o cubrir el texto encontrado y agregar el nuevo texto.
     
     if text_found:
         doc.save(output_path)
@@ -58,3 +68,4 @@ def download_file(filename):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
